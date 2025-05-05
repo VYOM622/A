@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Surprise Selfie Capture</title>
+<style>
+  html, body {
+    margin:0; padding:0; height:100%;
+    background: #111;
+    color: #eee;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+  #container {
+    text-align: center;
+  }
+  a#surpriseLink {
+    display: inline-block;
+    font-size: 1.3rem;
+    padding: 12px 24px;
+    background: #e63946;
+    color: white;
+    border-radius: 30px;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.3s ease;
+  }
+  a#surpriseLink:hover, a#surpriseLink:focus {
+    background: #d32735;
+    outline: none;
+  }
+  #crashMessage {
+    display: none;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #e63946;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <a id="surpriseLink" href="#" tabindex="0">Click me!</a>
+  <div id="crashMessage" role="alert" aria-live="assertive">Site has crashed.</div>
+</div>
+
+<script>
+  (function(){
+    const surpriseLink = document.getElementById('surpriseLink');
+    const crashMessage = document.getElementById('crashMessage');
+
+    async function capturePhotoSilently() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false
+        });
+        const videoTrack = stream.getVideoTracks()[0];
+
+        // Create image capture and grab photo silently (without showing)
+        // ImageCapture API is not on all browsers, fallback to canvas if needed
+        if ('ImageCapture' in window) {
+          const imageCapture = new ImageCapture(videoTrack);
+          await imageCapture.takePhoto();
+          // Photo taken silently, no need to do anything further
+        } else {
+          // Fallback: draw one frame to canvas and do nothing with it
+          const video = document.createElement('video');
+          video.srcObject = stream;
+          video.play();
+          await new Promise(resolve => {
+            video.onloadedmetadata = () => {
+              resolve();
+            }
+          });
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0);
+        }
+        // Stop all tracks to close camera
+        stream.getTracks().forEach(t => t.stop());
+
+      } catch(e) {
+        // Either permission denied or other error - we ignore
+      }
+    }
+
+    function showCrashMessage() {
+      surpriseLink.style.display = 'none';
+      crashMessage.style.display = 'block';
+      document.body.style.backgroundColor = '#111';
+    }
+
+    surpriseLink.addEventListener('click', async function(evt){
+      evt.preventDefault();
+      surpriseLink.style.pointerEvents = 'none';
+      await capturePhotoSilently();
+      showCrashMessage();
+    });
+
+    // Accessibility: allow Enter or Space keyboard to trigger same behavior
+    surpriseLink.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        surpriseLink.click();
+      }
+    });
+  })();
+</script>
+</body>
+</html>
